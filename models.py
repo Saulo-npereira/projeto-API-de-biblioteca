@@ -1,5 +1,6 @@
-from sqlalchemy import create_engine, Column, String, Integer, Boolean
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import create_engine, Column, String, Integer, Boolean, ForeignKey, DateTime
+from sqlalchemy.orm import DeclarativeBase, relationship
+from datetime import datetime
 
 engine = create_engine('sqlite:///banco.db')
 
@@ -41,4 +42,17 @@ class Livros(Base):
         self.quantidade_disponivel = quantidade_disponivel
         self.categoria = categoria
 
+class Emprestimos(Base):
+    __tablename__ = 'emprestimo'
+
+    id = Column('id', Integer, primary_key=True, autoincrement=True)
+    id_usuario = Column('id_usuario', ForeignKey('usuario.id'))
+    id_livro = Column('id_livro', ForeignKey('livros.id'))
+    data_emprestimo = Column('data_emprestimo', DateTime, default=datetime.utcnow)
+    data_devolucao_prevista = Column('data_devolucao_prevista', DateTime)
+    data_devolucao_real = Column('data_devolucao_real', DateTime, nullable=True)
+    status = Column('status', String, default='ativo')
+
+    usuario = relationship('Usuarios')
+    livro = relationship('Livros')
 

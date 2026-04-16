@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from schemas import LivroSchema
 from sqlalchemy.orm import Session
-from dependencies import pegar_sessao, verificar_admin
-from models import Livros, Usuarios
+from dependencies import pegar_sessao, verificar_admin, verificar_token
+from models import Livros, Usuarios, Emprestimos
+from datetime import datetime, timedelta
 
 biblioteca_router = APIRouter(prefix='/bibliotecas', tags=['biblioteca'])
 
@@ -27,6 +28,18 @@ async def listar_livros(session: Session = Depends(pegar_sessao)):
     livros = session.query(Livros).all()
     return {
         'livros': livros
+    }
+
+@biblioteca_router.post('/editar_estoque/{id_livro}/{quantidade}')
+async def editar_estoque(id_livro: int, quantidade: int, usuario: Usuarios = Depends(verificar_admin), session: Session = Depends(pegar_sessao)):
+    livro = session.query(Livros).filter(Livros.id==id_livro).first()
+    novo_estoque = livro.quantidade_disponivel + quantidade
+    if novo_estoque < 0:
+        raise HTTPException(status_code=400, detail='O estoque não pode ser menor que 0')
+    livro.quantidade_disponivel = novo_estoque
+    session.commit()
+    return {
+        'message': f'estoque do livro {livro.titulo} atualizado com sucesso'
     }
 
 @biblioteca_router.delete('/deletar_livro/{id_livro}')
@@ -67,4 +80,50 @@ async def buscar_livro_por_titulo(titulo_livro: str, session: Session = Depends(
     return {
         'message': 'livro encontrado com sucesso',
         'livro': livro
+    }
+
+@biblioteca_router.post('/pegar_emprestado/{id_livro}')
+async def pegar_emprestado(id_livro: int, session: Session = Depends(pegar_sessao), usuario: Usuarios = Depends(verificar_token)):
+    emprestimo_existe = session.query(Emprestimos).filter(
+        Emprestimos.id_usuario==usuario.id,
+        Emprestimos.id_livro==id_livro,
+        Emprestimos.status=='ativo'
+    ).first()
+    if emprestimo_existe:
+        raise HTTPException(status_code=401, detail='Você já pegou esse livro emprestado')
+    livro = session.query(Livros).filter(Livros.id==id_livro).first()
+    if not livro:
+        raise HTTPException(status_code=400, detail='Não possuimos esse livro')
+    if livro.quantidade_disponivel < 1:
+        raise HTTPException(status_code=400, detail='Este livro está fora do estoque')
+    livro.quantidade_disponivel -= 1
+    data_devolucao = datetime.utcnow() + timedelta(days=10)
+    emprestimo = Emprestimos(id_usuario=usuario.id, id_livro=id_livro, data_devolucao_prevista=data_devolucao)
+    session.add(emprestimo)
+    session.commit()
+    return {
+        'message': f'livro {livro.titulo} emprestado com sucesso para o usuario {usuario.nome}',
+        'data_devolucao': data_devolucao.strftime("%d/%m/%Y %H:%M")
+    }
+
+@biblioteca_router.post('/devolver_livro/{id_livro}')
+async def devolver_livro(id_livro: int, usuario: Usuarios = Depends(verificar_token), session: Session = Depends(pegar_sessao)):
+    livro = session.query(Livros).filter(Livros.id==id_livro).first()
+    if not livro:
+        raise HTTPException(status_code=400, detail='Não existe esse livro')
+    emprestimo = session.query(Emprestimos).filter(
+        Emprestimos.id_livro == id_livro,
+        Emprestimos.id_usuario == usuario.id,
+        Emprestimos.status == 'ativo'
+    ).first()
+    if not emprestimo:
+        raise HTTPException(status_code=400, detail='Você ainda não pegou esse livro emprestado')
+
+    livro.quantidade_disponivel += 1
+    emprestimo.status = 'devolvido'
+    emprestimo.data_devolucao_real = datetime.utcnow()
+    session.commit()
+
+    return {
+        'message': f'usuario {usuario.nome} devolveu o livro {livro.titulo} com sucesso'
     }
