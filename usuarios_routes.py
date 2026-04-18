@@ -11,6 +11,9 @@ usuarios_router = APIRouter(prefix='/usuarios', tags=['usuario'])
 
 @usuarios_router.post('/criar_usuario')
 async def criar_usuario(usuario_schema: UsuarioSchema, session: Session = Depends(pegar_sessao)):
+    '''
+    rota da API que cria usuario
+    '''
     usuario = session.query(Usuarios).filter(Usuarios.email==usuario_schema.email).first()
     if usuario:
         raise HTTPException(status_code=400, detail='Já existe um usuario com esse email')
@@ -30,6 +33,9 @@ async def criar_usuario(usuario_schema: UsuarioSchema, session: Session = Depend
 
 @usuarios_router.post('/login')
 async def login(login_schema: LoginSchema, session: Session = Depends(pegar_sessao)):
+    '''
+    rota da API usada para fazer login sem oauth2
+    '''
     usuario = autenticar_usuario(login_schema.email, login_schema.senha, session)
     if not usuario:
         raise HTTPException(status_code=404, detail='Usuario não encontrado')
@@ -45,6 +51,9 @@ async def login(login_schema: LoginSchema, session: Session = Depends(pegar_sess
 
 @usuarios_router.post('/login-form')
 async def login_form(login_schema: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(pegar_sessao)):
+    '''
+    Rota da API usada para fazer login usando oauth2
+    '''
     usuario = autenticar_usuario(login_schema.username, login_schema.password, session)
     if not usuario:
         raise HTTPException(status_code=404, detail='Usuario não encontrado')
@@ -59,6 +68,9 @@ async def login_form(login_schema: OAuth2PasswordRequestForm = Depends(), sessio
 
 @usuarios_router.get('/listar_usuarios')
 async def listar_usuario(session: Session = Depends(pegar_sessao), usuario: Usuarios = Depends(verificar_admin)):
+    '''
+    Rota da API usada para listar todos os usuarios(somente admins)
+    '''
     usuarios = session.query(Usuarios).all()
     return {
         'usuarios': usuarios
@@ -66,6 +78,9 @@ async def listar_usuario(session: Session = Depends(pegar_sessao), usuario: Usua
 
 @usuarios_router.get('/buscar_usuario_email')
 async def buscar_usuario_por_email(email: str, session: Session = Depends(pegar_sessao), usuario: Usuarios = Depends(verificar_admin)):
+    '''
+    Rota da API usada para buscar o usuario pelo email(somente admins)
+    '''
     usuario = session.query(Usuarios).filter(Usuarios.email==email).first()
     if not usuario:
         raise HTTPException(status_code=404, detail='Usuario não encontrado')
@@ -76,6 +91,9 @@ async def buscar_usuario_por_email(email: str, session: Session = Depends(pegar_
 
 @usuarios_router.delete('/deletar_usuario')
 async def deletar_usuario(id: int, session: Session = Depends(pegar_sessao), usuario: Usuarios = Depends(verificar_admin)):
+    '''
+    Rota da API para deletar usuario(somente admins)
+    '''
     usuario_passado = session.query(Usuarios).filter(Usuarios.id==id).first()
     if not usuario_passado:
         raise HTTPException(status_code=404, detail='Usuario não encontrado')

@@ -52,6 +52,7 @@ class Emprestimos(Base):
     data_devolucao_prevista = Column('data_devolucao_prevista', DateTime)
     data_devolucao_real = Column('data_devolucao_real', DateTime, nullable=True)
     status = Column('status', String, default='ativo')
+    vezes_renovado = Column('vezes_renovado', Integer, default=0)
 
     usuario = relationship('Usuarios')
     livro = relationship('Livros')
