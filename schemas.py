@@ -26,3 +26,9 @@ class LivroSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+class RefreshSchema(BaseModel):
+    refresh_token: str
+
+    class Config:
+        from_attributes = True

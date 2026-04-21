@@ -7,10 +7,11 @@ from datetime import datetime, timedelta
 
 emprestimo_router = APIRouter(prefix='/emprestimos', tags=['emprestimo'])
 
-def formatar_emprestimo(e):
+def formatar_emprestimo(e: Emprestimos):
     return {
         "id": e.id,
         "livro_id": e.id_livro,
+        "livro": e.livro.titulo,
         "usuario_id": e.id_usuario,
         "status": e.status,
         "data_emprestimo": e.data_emprestimo.strftime("%d/%m/%Y %H:%M"),
@@ -38,6 +39,19 @@ async def listar_usuario_logado(usuario: Usuarios = Depends(verificar_token), se
     Rota da API usada para listar todos os emprestimos do usuario que está logado
     '''
     emprestimos = session.query(Emprestimos).filter(Emprestimos.id_usuario==usuario.id).all()
+    if not emprestimos:
+        return {'message': 'Você não possui emprestimos ainda'}
+    return {
+        'message': 'Sucesso ao listar os seus emprestimos',
+        'emprestimos': [formatar_emprestimo(e) for e in emprestimos]
+    }
+
+@emprestimo_router.get('/ativos_logado')
+async def listar_usuario_logado(usuario: Usuarios = Depends(verificar_token), session: Session = Depends(pegar_sessao)):
+    '''
+    Rota da API usada para listar todos os emprestimos do usuario que está logado
+    '''
+    emprestimos = session.query(Emprestimos).filter(and_(Emprestimos.id_usuario==usuario.id, Emprestimos.status=='ativo')).all()
     if not emprestimos:
         return {'message': 'Você não possui emprestimos ainda'}
     return {
@@ -118,7 +132,7 @@ async def seus_emprestimos(session: Session = Depends(pegar_sessao), usuario: Us
     }
     
 
-@emprestimo_router.post('/renovar_emprestimo')
+@emprestimo_router.post('/renovar_emprestimo/{emprestimo_id}')
 async def renovar_emprestimo(emprestimo_id: int, session: Session = Depends(pegar_sessao), usuario: Usuarios = Depends(verificar_token)):
     '''
     Rota da API usada para renovar emprestimos
@@ -137,8 +151,7 @@ async def renovar_emprestimo(emprestimo_id: int, session: Session = Depends(pega
     session.commit()
     emprestimo = session.query(Emprestimos).filter(and_(Emprestimos.id==emprestimo_id, Emprestimos.id_usuario==usuario.id)).first()
     return {
-        'message': 'Sucesso ao renovar o emprestimo',
-        'nova_data': f'nova data de devolução: {nova_data.strftime("%d/%m/%Y")}',
+        'message': f'Sucesso ao renovar o emprestimo, nova data de devolução: {nova_data.strftime("%d/%m/%Y")}',
         'vezes_renovado': nova_vezes_renovado
     }
 

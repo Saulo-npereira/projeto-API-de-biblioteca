@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
-from schemas import UsuarioSchema, LoginSchema
+from schemas import UsuarioSchema, LoginSchema, RefreshSchema
 from sqlalchemy.orm import Session
 from dependencies import pegar_sessao, verificar_token, verificar_admin
 from models import Usuarios
 from utils import gerar_hash, autenticar_usuario, gerar_token
 from datetime import timedelta
-from security import oauth2_scheme
+from security import SECRET_KEY, ALGORITHM
+from jose import JWTError, jwt
 usuarios_router = APIRouter(prefix='/usuarios', tags=['usuario'])
 
 @usuarios_router.post('/criar_usuario')
@@ -64,6 +65,35 @@ async def login_form(login_schema: OAuth2PasswordRequestForm = Depends(), sessio
     return {
         'access_token': access_token,
         'refresh_token': refresh_token
+    }
+
+@usuarios_router.post('/refresh')
+async def refresh_token(data: RefreshSchema, session: Session = Depends(pegar_sessao)):
+    try:
+        payload = jwt.decode(data.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+
+        if not email:
+            raise HTTPException(status_code=401, detail="Token inválido")
+
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+    usuario = session.query(Usuarios).filter(Usuarios.email == email).first()
+
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    novo_access_token = gerar_token({"sub": usuario.email})
+
+    novo_refresh_token = gerar_token(
+        {"sub": usuario.email},
+        timedelta(days=1)
+    )
+
+    return {
+        "access_token": novo_access_token,
+        "refresh_token": novo_refresh_token
     }
 
 @usuarios_router.get('/listar_usuarios')

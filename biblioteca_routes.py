@@ -86,7 +86,7 @@ async def buscar_livro_por_id(id_livro: int, session: Session = Depends(pegar_se
         'livro': livro
     }
 
-@biblioteca_router.get('/buscar_livro_isbn')
+@biblioteca_router.get('/buscar_livro_isbn/{isbn_livro}')
 async def buscar_livro_por_isbn(isbn_livro: str, session: Session = Depends(pegar_sessao)):
     '''
     Rota da API usada para buscar livro pelo ISBN
@@ -99,7 +99,7 @@ async def buscar_livro_por_isbn(isbn_livro: str, session: Session = Depends(pega
         'livro': livro
     }
 
-@biblioteca_router.get('/buscar_livro_titulo')
+@biblioteca_router.get('/buscar_livro_titulo/{titulo_livro}')
 async def buscar_livro_por_titulo(titulo_livro: str, session: Session = Depends(pegar_sessao)):
     '''
     Rota da API usada para buscar livro pelo titulo do livro
@@ -126,19 +126,19 @@ async def pegar_emprestado(id_livro: int, session: Session = Depends(pegar_sessa
         Emprestimos.status=='ativo'
     ).first()
     if emprestimo_existe:
-        raise HTTPException(status_code=401, detail='Você já pegou esse livro emprestado')
+        raise HTTPException(status_code=400, detail='Você já pegou esse livro emprestado')
     livro = session.query(Livros).filter(Livros.id==id_livro).first()
     if not livro:
         raise HTTPException(status_code=400, detail='Não possuimos esse livro')
     if livro.quantidade_disponivel < 1:
         raise HTTPException(status_code=400, detail='Este livro está fora do estoque')
     livro.quantidade_disponivel -= 1
-    data_devolucao = datetime.utcnow() - timedelta(days=10)
+    data_devolucao = datetime.utcnow() + timedelta(days=10)
     emprestimo = Emprestimos(id_usuario=usuario.id, id_livro=id_livro, data_devolucao_prevista=data_devolucao)
     session.add(emprestimo)
     session.commit()
     return {
-        'message': f'livro {livro.titulo} emprestado com sucesso para o usuario {usuario.nome}',
+        'detail': f'livro {livro.titulo} emprestado com sucesso para o usuario {usuario.nome}',
         'data_devolucao': data_devolucao.strftime("%d/%m/%Y %H:%M")
     }
 
@@ -164,5 +164,5 @@ async def devolver_livro(id_livro: int, usuario: Usuarios = Depends(verificar_to
     session.commit()
 
     return {
-        'message': f'usuario {usuario.nome} devolveu o livro {livro.titulo} com sucesso'
+        'detail': f'usuario {usuario.nome} devolveu o livro {livro.titulo} com sucesso'
     }
