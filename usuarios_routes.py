@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from schemas import UsuarioSchema, LoginSchema, RefreshSchema
 from sqlalchemy.orm import Session
 from dependencies import pegar_sessao, verificar_token, verificar_admin
-from models import Usuarios
+from models import Usuarios, Livros
 from utils import gerar_hash, autenticar_usuario, gerar_token
 from datetime import timedelta
 from security import SECRET_KEY, ALGORITHM
@@ -46,6 +46,9 @@ async def login(login_schema: LoginSchema, session: Session = Depends(pegar_sess
     refresh_token = gerar_token(dados, timedelta(days=1))
     return {
         'message': 'Login feito com sucesso',
+        'id_usuario': usuario.id,
+        'nome_usuario': usuario.nome,
+        'admin': usuario.admin,
         'access_token': access_token,
         'refresh_token': refresh_token
     }
@@ -133,4 +136,13 @@ async def deletar_usuario(id: int, session: Session = Depends(pegar_sessao), usu
         'message': 'Usuario deletado com sucesso',
         'usuario_deletado': usuario_passado,
         'usuario_que_deletou': usuario.nome
+    }
+
+@usuarios_router.get('/quantos_usuario')
+async def quantos_usuario_e_livros(usuario: Usuarios = Depends(verificar_admin), session: Session = Depends(pegar_sessao)):
+    usuarios = session.query(Usuarios).count()
+    livros = session.query(Livros).count()
+    return {
+        'qnts_usuarios': usuarios,
+        'qnts_livros': livros
     }
