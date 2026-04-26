@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from schemas import UsuarioSchema, LoginSchema, RefreshSchema
 from sqlalchemy.orm import Session
 from dependencies import pegar_sessao, verificar_token, verificar_admin
-from models import Usuarios, Livros
+from models import Usuarios, Livros, Emprestimos
 from utils import gerar_hash, autenticar_usuario, gerar_token
 from datetime import timedelta
 from security import SECRET_KEY, ALGORITHM
@@ -109,7 +109,7 @@ async def listar_usuario(session: Session = Depends(pegar_sessao), usuario: Usua
         'usuarios': usuarios
     }
 
-@usuarios_router.get('/buscar_usuario_email')
+@usuarios_router.get('/buscar_usuario_email/{email}')
 async def buscar_usuario_por_email(email: str, session: Session = Depends(pegar_sessao), usuario: Usuarios = Depends(verificar_admin)):
     '''
     Rota da API usada para buscar o usuario pelo email(somente admins)
@@ -122,7 +122,19 @@ async def buscar_usuario_por_email(email: str, session: Session = Depends(pegar_
         'usuario': usuario
     }
 
-@usuarios_router.delete('/deletar_usuario')
+@usuarios_router.get('/buscar_usuario_id/{id}')
+async def buscar_usuario_por_id(id: int, session: Session = Depends(pegar_sessao), usuario: Usuarios = Depends(verificar_admin)):
+    '''
+    Rota da API usada para buscar o usuario pelo email(somente admins)
+    '''
+    usuario = session.query(Usuarios).filter(Usuarios.id==id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail='Usuario não encontrado')
+    return {
+        'usuario': usuario
+    }
+
+@usuarios_router.delete('/deletar_usuario/{id}')
 async def deletar_usuario(id: int, session: Session = Depends(pegar_sessao), usuario: Usuarios = Depends(verificar_admin)):
     '''
     Rota da API para deletar usuario(somente admins)
@@ -142,7 +154,9 @@ async def deletar_usuario(id: int, session: Session = Depends(pegar_sessao), usu
 async def quantos_usuario_e_livros(usuario: Usuarios = Depends(verificar_admin), session: Session = Depends(pegar_sessao)):
     usuarios = session.query(Usuarios).count()
     livros = session.query(Livros).count()
+    emprestimos = session.query(Emprestimos).count()
     return {
         'qnts_usuarios': usuarios,
-        'qnts_livros': livros
+        'qnts_livros': livros,
+        'qnts_emprestimos': emprestimos
     }

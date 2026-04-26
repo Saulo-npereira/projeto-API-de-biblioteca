@@ -69,8 +69,7 @@ async def deletar_livro(id_livro: int, session: Session = Depends(pegar_sessao),
     session.delete(livro)
     session.commit()
     return {
-        'message': 'livro deletado com sucesso',
-        'livro': livro
+        'message': 'livro deletado com sucesso'
     }
 
 @biblioteca_router.get('/buscar_livro_id/{id_livro}')
@@ -133,7 +132,7 @@ async def pegar_emprestado(id_livro: int, session: Session = Depends(pegar_sessa
     if livro.quantidade_disponivel < 1:
         raise HTTPException(status_code=400, detail='Este livro está fora do estoque')
     livro.quantidade_disponivel -= 1
-    data_devolucao = datetime.utcnow() + timedelta(days=10)
+    data_devolucao = datetime.utcnow() - timedelta(days=10)
     emprestimo = Emprestimos(id_usuario=usuario.id, id_livro=id_livro, data_devolucao_prevista=data_devolucao)
     session.add(emprestimo)
     session.commit()

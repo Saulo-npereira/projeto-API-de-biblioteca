@@ -12,6 +12,7 @@ def formatar_emprestimo(e: Emprestimos):
         "id": e.id,
         "livro_id": e.id_livro,
         "livro": e.livro.titulo,
+        "usuario": e.usuario.nome,
         "usuario_id": e.id_usuario,
         "status": e.status,
         "data_emprestimo": e.data_emprestimo.strftime("%d/%m/%Y %H:%M"),
@@ -83,7 +84,7 @@ async def listar_emprestimos_ativos(usuario: Usuarios = Depends(verificar_admin)
         'emprestimos_ativos': [formatar_emprestimo(e) for e in emprestimos]
     }
 
-@emprestimo_router.get('/listar_emprestimos_de_alguem')
+@emprestimo_router.get('/emprestimos_usuario/{usuario_id}')
 async def listar_emprestimos_de_alguem(usuario_id: int, usuario: Usuarios = Depends(verificar_admin), session: Session = Depends(pegar_sessao)):
     '''
     Rota da API usada para listar emprestimos de alguem em especifico(somente admins)
@@ -93,7 +94,7 @@ async def listar_emprestimos_de_alguem(usuario_id: int, usuario: Usuarios = Depe
         raise HTTPException(status_code=404, detail='Usuário não existente')
     emprestimos = session.query(Emprestimos).filter(Emprestimos.id_usuario==usuario_id).all()
     if not emprestimos:
-        return {'message': f'O usuário {usuario_emprestimo.nome} não possui emprestimos'}
+        return {'detail': f'O usuário {usuario_emprestimo.nome} não possui emprestimos'}
     return {
         'message': f'Sucesso ao buscar emprestimos de {usuario_emprestimo.nome}',
         'emprestimos': [formatar_emprestimo(e) for e in emprestimos]
@@ -155,11 +156,6 @@ async def renovar_emprestimo(emprestimo_id: int, session: Session = Depends(pega
         'vezes_renovado': nova_vezes_renovado
     }
 
-
-'''
-@emprestimo_router.get('/livro_mais_emprestado')
-async def livro_mais_emprestado(session: Session = Depends(pegar_sessao), usuario: Usuarios = Depends(verificar_admin)):
-'''
 
 
     

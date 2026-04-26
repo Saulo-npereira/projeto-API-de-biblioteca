@@ -1,8 +1,15 @@
-from sqlalchemy import create_engine, Column, String, Integer, Boolean, ForeignKey, DateTime
+from sqlalchemy import create_engine, Column, String, Integer, Boolean, ForeignKey, DateTime, event
 from sqlalchemy.orm import DeclarativeBase, relationship
 from datetime import datetime
+from sqlalchemy.engine import Engine
 
 engine = create_engine('sqlite:///banco.db')
+
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 class Base(DeclarativeBase):
     pass
@@ -21,6 +28,12 @@ class Usuarios(Base):
         self.email = email
         self.senha = senha
         self.admin = admin
+
+    emprestimos = relationship(
+    'Emprestimos',
+    back_populates='usuario',
+    cascade="all, delete-orphan"
+    )
         
 
 class Livros(Base):
@@ -42,18 +55,24 @@ class Livros(Base):
         self.quantidade_disponivel = quantidade_disponivel
         self.categoria = categoria
 
+    emprestimos = relationship(
+    'Emprestimos',
+    back_populates='livro',
+    cascade="all, delete-orphan"
+)
+
 class Emprestimos(Base):
     __tablename__ = 'emprestimo'
 
     id = Column('id', Integer, primary_key=True, autoincrement=True)
-    id_usuario = Column('id_usuario', ForeignKey('usuario.id'))
-    id_livro = Column('id_livro', ForeignKey('livros.id'))
+    id_usuario = Column('id_usuario', ForeignKey('usuario.id', ondelete="CASCADE"), nullable=False)
+    id_livro = Column('id_livro', ForeignKey('livros.id', ondelete="CASCADE"), nullable=False)
     data_emprestimo = Column('data_emprestimo', DateTime, default=datetime.utcnow)
     data_devolucao_prevista = Column('data_devolucao_prevista', DateTime)
     data_devolucao_real = Column('data_devolucao_real', DateTime, nullable=True)
     status = Column('status', String, default='ativo')
     vezes_renovado = Column('vezes_renovado', Integer, default=0)
 
-    usuario = relationship('Usuarios')
-    livro = relationship('Livros')
+    usuario = relationship('Usuarios', back_populates='emprestimos')
+    livro = relationship('Livros', back_populates='emprestimos')
 
