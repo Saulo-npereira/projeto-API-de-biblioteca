@@ -22,6 +22,7 @@ class Usuarios(Base):
     email = Column('email', String)
     senha = Column('senha', String)
     admin = Column('admin', Boolean)
+    data_criacao = Column('data_criacao', DateTime, nullable=True, default=datetime.utcnow)
 
     def __init__(self, nome, email, senha, admin):
         self.nome = nome

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from dependencies import pegar_sessao, verificar_admin, verificar_token
-from models import Usuarios, Emprestimos
+from models import Usuarios, Emprestimos, Livros
 from datetime import datetime, timedelta
 
 emprestimo_router = APIRouter(prefix='/emprestimos', tags=['emprestimo'])
@@ -26,6 +26,8 @@ def formatar_emprestimo_atrasado(e: Emprestimos):
         "id": e.id,
         "livro_id": e.id_livro,
         "usuario_id": e.id_usuario,
+        "livro": e.livro.titulo,
+        "usuario": e.usuario.nome,
         "status": e.status,
         "data_emprestimo": e.data_emprestimo.strftime("%d/%m/%Y %H:%M"),
         "data_devolucao_prevista": e.data_devolucao_prevista.strftime("%d/%m/%Y %H:%M") if e.data_devolucao_prevista else None,
@@ -100,6 +102,21 @@ async def listar_emprestimos_de_alguem(usuario_id: int, usuario: Usuarios = Depe
         'emprestimos': [formatar_emprestimo(e) for e in emprestimos]
     }
 
+@emprestimo_router.get('/emprestimos_livro/{livro_titulo}')
+async def listar_emprestimos_de_livro(livro_titulo: str, usuario: Usuarios = Depends(verificar_admin), session: Session = Depends(pegar_sessao)):
+    '''
+    Rota da API usada para listar emprestimos de algum livro em especifico(somente admins)
+    '''
+    livro_emprestado = session.query(Livros).filter(Livros.titulo==livro_titulo).first()
+    if not livro_emprestado:
+        raise HTTPException(status_code=404, detail='Livro não existente')
+    emprestimos = session.query(Emprestimos).filter(Emprestimos.id_livro==livro_emprestado.id).all()
+    if not emprestimos:
+        return {'detail': f'O livro {livro_emprestado.titulo} não possui emprestimos'}
+    return {
+        'emprestimos': [formatar_emprestimo(e) for e in emprestimos]
+    }
+
 @emprestimo_router.get('/listar_atrasados')
 async def listar_atrasados(session: Session = Depends(pegar_sessao), usuario: Usuarios = Depends(verificar_admin)):
     '''
@@ -140,18 +157,22 @@ async def renovar_emprestimo(emprestimo_id: int, session: Session = Depends(pega
     '''
     emprestimo = session.query(Emprestimos).filter(and_(Emprestimos.id==emprestimo_id, Emprestimos.id_usuario==usuario.id)).first()
     if not emprestimo:
-        return {'message':'id de emprestimo inexistente ou esse emprestimo não possui a você'}
+        raise HTTPException(status_code=404, detail='emprestimo inexistente')
     if emprestimo.status == 'devolvido':
-        return {'message': 'Devolução já feita anteriormente'}
+        raise HTTPException(status_code=400, detail='emprestimo já devolvido')
     if emprestimo.vezes_renovado >= 3:
-        return {'message': 'Você já excedeu o número de vezes que se pode renovar o emprestimo'}
+        raise HTTPException(status_code=400, detail='Você excedeu o número de vezes que se pode renovar o emprestimo')
+        
     nova_vezes_renovado = emprestimo.vezes_renovado + 1
     emprestimo.vezes_renovado = nova_vezes_renovado
     nova_data = datetime.utcnow() + timedelta(days=10)
     emprestimo.data_devolucao_prevista = nova_data
+    if emprestimo.status == 'atrasado':
+        emprestimo.status = 'ativo'
     session.commit()
     emprestimo = session.query(Emprestimos).filter(and_(Emprestimos.id==emprestimo_id, Emprestimos.id_usuario==usuario.id)).first()
     return {
+        'detail': f'Sucesso ao renovar o emprestimo, nova data de devolução: {nova_data.strftime("%d/%m/%Y")}',
         'message': f'Sucesso ao renovar o emprestimo, nova data de devolução: {nova_data.strftime("%d/%m/%Y")}',
         'vezes_renovado': nova_vezes_renovado
     }
