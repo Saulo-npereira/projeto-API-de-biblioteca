@@ -107,7 +107,7 @@ async def listar_emprestimos_de_livro(livro_titulo: str, usuario: Usuarios = Dep
     '''
     Rota da API usada para listar emprestimos de algum livro em especifico(somente admins)
     '''
-    livro_emprestado = session.query(Livros).filter(Livros.titulo==livro_titulo).first()
+    livro_emprestado = session.query(Livros).filter(Livros.titulo.ilike(f'{livro_titulo}%')).first()
     if not livro_emprestado:
         raise HTTPException(status_code=404, detail='Livro não existente')
     emprestimos = session.query(Emprestimos).filter(Emprestimos.id_livro==livro_emprestado.id).all()

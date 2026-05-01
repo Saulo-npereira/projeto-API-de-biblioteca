@@ -103,7 +103,7 @@ async def buscar_livro_por_titulo(titulo_livro: str, session: Session = Depends(
     '''
     Rota da API usada para buscar livro pelo titulo do livro
     '''
-    livro = session.query(Livros).filter(Livros.titulo==titulo_livro).first()
+    livro = session.query(Livros).filter(Livros.titulo.ilike(f'%{titulo_livro}%')).first()
     if not livro:
         raise HTTPException(status_code=404, detail='livro não encontrado')
     return {
